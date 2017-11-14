@@ -77,55 +77,59 @@ with graph.as_default():
     keep_prob = tf.placeholder(tf.float32)
     global_step = tf.Variable(0)
 
+    with tf.variable_scope("conv1"):
+        w1 = tf.Variable(tf.truncated_normal([patch_size, patch_size, num_channels, depth], stddev=0.1), name='w')
+        b1 = tf.Variable(tf.zeros([depth]), name='b')
+    with tf.variable_scope("conv2"):
+        w2 = tf.Variable(tf.truncated_normal([patch_size2, patch_size2, depth, depth2], stddev=0.1), name='w')
+        b2 = tf.Variable(tf.constant(1.0, shape=[depth2]), name='b')
+    with tf.variable_scope("fc1"):
+        w3 = tf.Variable(tf.truncated_normal([image_size // 4 * image_size // 4 * depth2, num_hidden], stddev=0.1), name='w')
+        b3 = tf.Variable(tf.constant(1.0, shape=[num_hidden]), name='b')
+
+    with tf.variable_scope("fc2"):
+        w4 = tf.Variable(tf.truncated_normal([num_hidden, num_hidden2], stddev=0.1), name='w')
+        b4 = tf.Variable(tf.constant(1.0, shape=[num_hidden2]), name='b')
+
+    with tf.variable_scope("fc3"):
+        w5 = tf.Variable(tf.truncated_normal([num_hidden2, num_labels], stddev=0.1), name='w')
+        b5 = tf.Variable(tf.constant(1.0, shape=[num_labels]), name='b')
+
+
 
     def model(data):
-        with tf.variable_scope("conv1"):
-            w1 = tf.Variable(tf.truncated_normal([patch_size, patch_size, num_channels, depth], stddev=0.1), name='w')
-            b1 = tf.Variable(tf.zeros([depth]), name='b')
-            conv = tf.nn.conv2d(data, w1, [1, 1, 1, 1], padding='SAME')
-            conv = tf.nn.relu(conv + b1)
-            conv = tf.nn.max_pool(conv, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
+        conv = tf.nn.conv2d(data, w1, [1, 1, 1, 1], padding='SAME')
+        conv = tf.nn.relu(conv + b1)
+        conv = tf.nn.max_pool(conv, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
 
-        with tf.variable_scope("conv2"):
-            w2 = tf.Variable(tf.truncated_normal([patch_size2, patch_size2, depth, depth2], stddev=0.1), name='w')
-            b2 = tf.Variable(tf.constant(1.0, shape=[depth2]), name='b')
-            conv = tf.nn.conv2d(conv, w2, [1, 1, 1, 1], padding='SAME')
-            conv = tf.nn.relu(conv + b2)
-            conv = tf.nn.max_pool(conv, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
+        conv = tf.nn.conv2d(conv, w2, [1, 1, 1, 1], padding='SAME')
+        conv = tf.nn.relu(conv + b2)
+        conv = tf.nn.max_pool(conv, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
 
-        with tf.variable_scope("fc1"):
-            w3 = tf.Variable(tf.truncated_normal([image_size // 4 * image_size // 4 * depth2, num_hidden], stddev=0.1), name='w')
-            b3 = tf.Variable(tf.constant(1.0, shape=[num_hidden]), name='b')
-            shape = conv.get_shape().as_list()
-            reshape = tf.reshape(conv, [-1, shape[1] * shape[2] * shape[3]])
-            hidden = tf.matmul(reshape, w3) + b3
-            hidden = tf.nn.dropout(hidden, keep_prob)
-            hidden = tf.nn.relu(hidden)
+        shape = conv.get_shape().as_list()
+        reshape = tf.reshape(conv, [-1, shape[1] * shape[2] * shape[3]])
+        hidden = tf.matmul(reshape, w3) + b3
+        hidden = tf.nn.dropout(hidden, keep_prob)
+        hidden = tf.nn.relu(hidden)
 
-        with tf.variable_scope("fc2"):
-            w4 = tf.Variable(tf.truncated_normal([num_hidden, num_hidden2], stddev=0.1), name='w')
-            b4 = tf.Variable(tf.constant(1.0, shape=[num_hidden2]), name='b')
-            hidden = tf.matmul(hidden, w4) + b4
-            hidden = tf.nn.dropout(hidden, keep_prob)
-            hidden = tf.nn.relu(hidden)
+        hidden = tf.matmul(hidden, w4) + b4
+        hidden = tf.nn.dropout(hidden, keep_prob)
+        hidden = tf.nn.relu(hidden)
 
-        with tf.variable_scope("fc3"):
-            w5 = tf.Variable(tf.truncated_normal([num_hidden2, num_labels], stddev=0.1), name='w')
-            b5 = tf.Variable(tf.constant(1.0, shape=[num_labels]), name='b')
-            output = tf.matmul(hidden, w5) + b5
+        output = tf.matmul(hidden, w5) + b5
         return output
 
     # Training computation.
     logits = model(tf_train_dataset)
 
 
-    w_fc1 = get_global_variable("fc1/w:0")
-    w_fc2 = get_global_variable("fc2/w:0")
+    #w_fc1 = get_global_variable("fc1/w:0")
+    #w_fc2 = get_global_variable("fc2/w:0")
 
     alpha = 0.001
     loss = (tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=tf_train_labels, logits=logits))
-            + alpha * tf.nn.l2_loss(w_fc1)
-            + alpha * tf.nn.l2_loss(w_fc2))
+            + alpha * tf.nn.l2_loss(w3)
+            + alpha * tf.nn.l2_loss(w4))
 
     # Optimizer.
     learning_rate = tf.train.exponential_decay(0.005, global_step, 50, 0.99, staircase=True)
@@ -137,8 +141,11 @@ with graph.as_default():
     valid_prediction = tf.nn.softmax(model(tf_valid_dataset))
     test_prediction = tf.nn.softmax(model(tf_test_dataset))
 
-num_steps = 2001
 
+writer = tf.summary.FileWriter(r"C:\tmp\tb\tb1", graph)
+
+
+num_steps = 2001
 with tf.Session(graph=graph,
                 config=tf.ConfigProto(intra_op_parallelism_threads=3)
                 ) as session:
