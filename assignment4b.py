@@ -71,8 +71,8 @@ def conv_layer(input, channels_in, channels_out, name='conv'):
         w = tf.get_variable("w", initializer=initializer([5, 5, channels_in, channels_out]) )
         b = tf.get_variable("b", initializer=tf.constant(0.0, shape=[channels_out]))
         conv = tf.nn.conv2d(input, w, strides=[1, 1, 1, 1], padding="SAME")
-        act = tf.nn.relu(conv + b)
-        #act = lrelu(conv + b)
+        #act = tf.nn.relu(conv + b)
+        act = lrelu(conv + b)
     return act
 
 
@@ -85,13 +85,13 @@ def fc_layer(input, channels_in, channels_out, name='fc', use_relu=True, use_dro
         if use_dropout:
             act = tf.nn.dropout(act, keep_prob)
         if use_relu:
-            act = tf.nn.relu(act)
-            #act = lrelu(act)
+            #act = tf.nn.relu(act)
+            act = lrelu(act)
     return act
 
 
 
-batch_size = 200
+batch_size = 32
 
 graph = tf.Graph()
 with graph.as_default():
@@ -106,17 +106,17 @@ with graph.as_default():
     global_step = tf.Variable(0)
 
     def model(X):
-        net = conv_layer(X, 1, 4, 'conv1')
+        net = conv_layer(X, 1, 8, 'conv1')
         net = tf.nn.max_pool(net, ksize=[1,2,2,1], strides=[1,2,2,1], padding='SAME')
 
-        net = conv_layer(net, 4, 8, 'conv2')
+        net = conv_layer(net, 8, 16, 'conv2')
         net = tf.nn.max_pool(net, ksize=[1,2,2,1], strides=[1,2,2,1], padding='SAME')
 
-        net = conv_layer(net, 8, 16, 'conv3')
-        net = tf.reshape(net, [-1, 7*7*16])
+        net = conv_layer(net, 16, 32, 'conv3')
+        net = tf.reshape(net, [-1, 7*7*32])
 
-        net = fc_layer(net, 7*7*16, 256, 'fc1')
-        logits = fc_layer(net, 256, 10, 'fc2', False, False)
+        net = fc_layer(net, 7*7*32, 1024, 'fc1')
+        logits = fc_layer(net, 1024, 10, 'fc2', False, False)
 
         return logits
 
@@ -136,7 +136,7 @@ with graph.as_default():
 
 
     # Optimizer.
-    learning_rate = tf.train.exponential_decay(0.01, global_step, 50, 0.7, staircase=True)
+    learning_rate = tf.train.exponential_decay(0.01, global_step, 50, 0.98, staircase=True)
     with tf.name_scope("train"):
         optimizer = tf.train.GradientDescentOptimizer(learning_rate)
         train_op = optimizer.minimize(loss, global_step=global_step)
