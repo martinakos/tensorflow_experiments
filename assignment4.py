@@ -52,6 +52,10 @@ def accuracy(predictions, labels):
     return (100.0 * np.sum(np.argmax(predictions, 1) == np.argmax(labels, 1))/ predictions.shape[0])
 
 
+def get_global_variable(name):
+    var = [v for v in tf.global_variables() if v.name == name][0]
+    return var
+
 
 batch_size = 16
 patch_size = 5
@@ -76,47 +80,47 @@ with graph.as_default():
 
     def model(data):
         with tf.variable_scope("conv1"):
-            w = tf.Variable(tf.truncated_normal([patch_size, patch_size, num_channels, depth], stddev=0.1), name='w')
-            b = tf.Variable(tf.zeros([depth]), name='b')
-            conv = tf.nn.conv2d(data, w, [1, 1, 1, 1], padding='SAME')
-            conv = tf.nn.relu(conv + b)
+            w1 = tf.Variable(tf.truncated_normal([patch_size, patch_size, num_channels, depth], stddev=0.1), name='w')
+            b1 = tf.Variable(tf.zeros([depth]), name='b')
+            conv = tf.nn.conv2d(data, w1, [1, 1, 1, 1], padding='SAME')
+            conv = tf.nn.relu(conv + b1)
             conv = tf.nn.max_pool(conv, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
 
         with tf.variable_scope("conv2"):
-            w = tf.Variable(tf.truncated_normal([patch_size2, patch_size2, depth, depth2], stddev=0.1), name='w')
-            b = tf.Variable(tf.constant(1.0, shape=[depth2]), name='b')
-            conv = tf.nn.conv2d(conv, w, [1, 1, 1, 1], padding='SAME')
-            conv = tf.nn.relu(conv + b)
+            w2 = tf.Variable(tf.truncated_normal([patch_size2, patch_size2, depth, depth2], stddev=0.1), name='w')
+            b2 = tf.Variable(tf.constant(1.0, shape=[depth2]), name='b')
+            conv = tf.nn.conv2d(conv, w2, [1, 1, 1, 1], padding='SAME')
+            conv = tf.nn.relu(conv + b2)
             conv = tf.nn.max_pool(conv, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
 
         with tf.variable_scope("fc1"):
-            w = tf.Variable(tf.truncated_normal([image_size // 4 * image_size // 4 * depth2, num_hidden], stddev=0.1), name='w')
-            b = tf.Variable(tf.constant(1.0, shape=[num_hidden]), name='b')
+            w3 = tf.Variable(tf.truncated_normal([image_size // 4 * image_size // 4 * depth2, num_hidden], stddev=0.1), name='w')
+            b3 = tf.Variable(tf.constant(1.0, shape=[num_hidden]), name='b')
             shape = conv.get_shape().as_list()
             reshape = tf.reshape(conv, [-1, shape[1] * shape[2] * shape[3]])
-            hidden = tf.matmul(reshape, w) + b
+            hidden = tf.matmul(reshape, w3) + b3
             hidden = tf.nn.dropout(hidden, keep_prob)
             hidden = tf.nn.relu(hidden)
 
         with tf.variable_scope("fc2"):
-            w = tf.Variable(tf.truncated_normal([num_hidden, num_hidden2], stddev=0.1), name='w')
-            b = tf.Variable(tf.constant(1.0, shape=[num_hidden2]), name='b')
-            hidden = tf.matmul(hidden, w) + b
+            w4 = tf.Variable(tf.truncated_normal([num_hidden, num_hidden2], stddev=0.1), name='w')
+            b4 = tf.Variable(tf.constant(1.0, shape=[num_hidden2]), name='b')
+            hidden = tf.matmul(hidden, w4) + b4
             hidden = tf.nn.dropout(hidden, keep_prob)
             hidden = tf.nn.relu(hidden)
 
         with tf.variable_scope("fc3"):
-            w = tf.Variable(tf.truncated_normal([num_hidden2, num_labels], stddev=0.1), name='w')
-            b = tf.Variable(tf.constant(1.0, shape=[num_labels]), name='b')
-            output = tf.matmul(hidden, w) + b
+            w5 = tf.Variable(tf.truncated_normal([num_hidden2, num_labels], stddev=0.1), name='w')
+            b5 = tf.Variable(tf.constant(1.0, shape=[num_labels]), name='b')
+            output = tf.matmul(hidden, w5) + b5
         return output
 
     # Training computation.
     logits = model(tf_train_dataset)
 
 
-    w_fc1 = graph.get_tensor_by_name("fc1/w:0")
-    w_fc2 = graph.get_tensor_by_name("fc2/w:0")
+    w_fc1 = get_global_variable("fc1/w:0")
+    w_fc2 = get_global_variable("fc2/w:0")
 
     alpha = 0.001
     loss = (tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=tf_train_labels, logits=logits))
