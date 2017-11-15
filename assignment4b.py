@@ -12,6 +12,9 @@ from six.moves import cPickle as pickle
 import tensorflow as tf
 
 
+def noop():
+    pass
+
 pickle_file = 'notMNIST.pickle'
 
 with open(pickle_file, 'rb') as f:
@@ -48,7 +51,7 @@ print('Test set', test_dataset.shape, test_labels.shape)
 #valid_dataset += 0.5
 #test_dataset += 0.5
 
-def accuracy(predictions, labels):
+def calc_accuracy(predictions, labels):
     return (100.0 * np.sum(np.argmax(predictions, 1) == np.argmax(labels, 1))/ predictions.shape[0])
 
 
@@ -73,6 +76,9 @@ def conv_layer(input, channels_in, channels_out, name='conv'):
         conv = tf.nn.conv2d(input, w, strides=[1, 1, 1, 1], padding="SAME")
         #act = tf.nn.relu(conv + b)
         act = lrelu(conv + b)
+        tf.summary.histogram("weights", w)
+        tf.summary.histogram("biases", b)
+        tf.summary.histogram("activations", act)
     return act
 
 
@@ -87,6 +93,9 @@ def fc_layer(input, channels_in, channels_out, name='fc', use_relu=True, use_dro
         if use_relu:
             #act = tf.nn.relu(act)
             act = lrelu(act)
+        tf.summary.histogram("weights", w)
+        tf.summary.histogram("biases", b)
+        tf.summary.histogram("activations", act)
     return act
 
 
@@ -99,6 +108,9 @@ with graph.as_default():
 
     # Input data.
     X = tf.placeholder(tf.float32, shape=(None, image_size, image_size, num_channels), name='X')
+    #Just to see in tensorboard that what we are using as imputs are really images.
+    #if data wasn't arragent as an image here we can reshape it an add it to the summary.
+    tf.summary.image('input', X, 3)
     Y = tf.placeholder(tf.float32, shape=(None, num_labels), name='Y')
     tf_valid_dataset = tf.constant(valid_dataset)
     tf_test_dataset = tf.constant(test_dataset)
@@ -132,8 +144,7 @@ with graph.as_default():
         loss = (tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=Y))
             + alpha * tf.nn.l2_loss(w3)
             + alpha * tf.nn.l2_loss(w4))
-
-
+        tf.summary.scalar("loss", loss)
 
     # Optimizer.
     learning_rate = tf.train.exponential_decay(0.01, global_step, 50, 0.98, staircase=True)
@@ -146,14 +157,18 @@ with graph.as_default():
     # Predictions for the training, validation, and test data.
     with tf.name_scope("train_prediction"):
         train_prediction = tf.nn.softmax(logits)
+
+        correct_prediction = tf.equal(tf.argmax(logits, 1), tf.argmax(Y, 1))
+        accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+        tf.summary.scalar("accuracy", accuracy)
+
+
     with tf.name_scope("valid_prediction"):
         valid_prediction = tf.nn.softmax(model(tf_valid_dataset))
     with tf.name_scope("test_prediction"):
         test_prediction = tf.nn.softmax(model(tf_test_dataset))
 
 
-
-writer = tf.summary.FileWriter(r"C:\tmp\tb\tb1", graph)
 
 
 num_steps = 2001
@@ -163,6 +178,11 @@ with tf.Session(graph=graph,
     tf.global_variables_initializer().run()
     print('Initialized')
 
+
+    merged_summary = tf.summary.merge_all()
+    writer = tf.summary.FileWriter(r"C:\tmp\tb\tb1", graph)
+
+
     for step in range(num_steps):
         offset = (step * batch_size) % (train_labels.shape[0] - batch_size)
         batch_data = train_dataset[offset:(offset + batch_size), :, :, :]
@@ -171,8 +191,15 @@ with tf.Session(graph=graph,
         _, l, predictions = session.run([train_op, loss, train_prediction], feed_dict=feed_dict)
         if (step % 50 == 0):
             print("iteration:", step, " learning rate:", learning_rate.eval(), " loss:", l,
-                "accuracy: %.1f%%" % accuracy(predictions, batch_labels),
-                " validation accuracy: %.1f%%" % accuracy(
+                "accuracy: %.1f%%" % calc_accuracy(predictions, batch_labels),
+                " validation accuracy: %.1f%%" % calc_accuracy(
                 valid_prediction.eval(feed_dict={keep_prob : 1.0}), valid_labels),
-                " test accuracy: %.1f%%" % accuracy(
+                " test accuracy: %.1f%%" % calc_accuracy(
                 test_prediction.eval(feed_dict={keep_prob : 1.0}), test_labels))
+        if step % 50 == 0:
+            [train_accuracy, s] = session.run([accuracy, merged_summary], feed_dict=feed_dict)
+            writer.add_summary(s, step)
+
+
+
+noop()
