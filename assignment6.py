@@ -13,6 +13,10 @@ import zipfile
 from six.moves import range
 from six.moves.urllib.request import urlretrieve
 
+
+def noop():
+    pass
+
 url = 'http://mattmahoney.net/dc/'
 
 def maybe_download(filename, expected_bytes):
@@ -220,8 +224,8 @@ with graph.as_default():
         # Classifier.
         logits = tf.nn.xw_plus_b(tf.concat(outputs, 0), w, b)
         loss = tf.reduce_mean(
-        tf.nn.softmax_cross_entropy_with_logits(
-          labels=tf.concat(train_labels, 0), logits=logits))
+            tf.nn.softmax_cross_entropy_with_logits(
+                labels=tf.concat(train_labels, 0), logits=logits))
 
     # Optimizer.
     global_step = tf.Variable(0)
@@ -269,12 +273,10 @@ with tf.Session(graph=graph) as session:
             if step > 0:
                 mean_loss = mean_loss / summary_frequency
             # The mean loss is an estimate of the loss over the last few batches.
-            print(
-          'Average loss at step %d: %f learning rate: %f' % (step, mean_loss, lr))
+            print('Average loss at step %d: %f learning rate: %f' % (step, mean_loss, lr))
             mean_loss = 0
             labels = np.concatenate(list(batches)[1:])
-            print('Minibatch perplexity: %.2f' % float(
-          np.exp(logprob(predictions, labels))))
+            print('Minibatch perplexity: %.2f' % float(np.exp(logprob(predictions, labels))))
             if step % (summary_frequency * 10) == 0:
                 # Generate some samples.
                 print('=' * 80)
@@ -297,3 +299,6 @@ with tf.Session(graph=graph) as session:
                 valid_logprob = valid_logprob + logprob(predictions, b[1])
             print('Validation set perplexity: %.2f' % float(np.exp(
           valid_logprob / valid_size)))
+
+
+noop()

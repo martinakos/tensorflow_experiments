@@ -149,9 +149,9 @@ with graph.as_default():
     # Optimizer.
     learning_rate = tf.train.exponential_decay(0.01, global_step, 50, 0.98, staircase=True)
     with tf.name_scope("train"):
-        optimizer = tf.train.GradientDescentOptimizer(learning_rate)
-        train_op = optimizer.minimize(loss, global_step=global_step)
-    #train_op = tf.train.AdamOptimizer(0.01).minimize(loss, global_step=global_step)
+        #optimizer = tf.train.GradientDescentOptimizer(learning_rate)
+        #train_op = optimizer.minimize(loss, global_step=global_step)
+        train_op = tf.train.AdamOptimizer().minimize(loss)
 
 
     # Predictions for the training, validation, and test data.
