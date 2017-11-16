@@ -187,6 +187,9 @@ with tf.Session(graph=graph,
         offset = (step * batch_size) % (train_labels.shape[0] - batch_size)
         batch_data = train_dataset[offset:(offset + batch_size), :, :, :]
         batch_labels = train_labels[offset:(offset + batch_size), :]
+        #feed_dict is a dictionary that uses symbolic Tensors as keys
+        #The Tensors have the __hash__() function returning the object Id
+        #This allows us to access a key using the object that is stored in that key???!!! funny
         feed_dict = {X : batch_data, Y : batch_labels, keep_prob : 0.5}
         _, l, predictions = session.run([train_op, loss, train_prediction], feed_dict=feed_dict)
         if (step % 50 == 0):
