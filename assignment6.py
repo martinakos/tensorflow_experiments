@@ -173,37 +173,37 @@ num_nodes = 64
 graph = tf.Graph()
 with graph.as_default():
 
-    # Parameters:
-    # Input gate: input, previous output, and bias.
-    wix = tf.Variable(tf.truncated_normal([vocabulary_size, num_nodes], -0.1, 0.1), name='wix')
-    wih = tf.Variable(tf.truncated_normal([num_nodes, num_nodes], -0.1, 0.1), name='wih')
-    bi = tf.Variable(tf.zeros([1, num_nodes]), name='bi')
+    with tf.variable_scope("LSTM_parameters"):
+        # Parameters:
+        # Input gate: input, previous output, and bias.
+        wix = tf.Variable(tf.truncated_normal([vocabulary_size, num_nodes], -0.1, 0.1), name='wix')
+        wih = tf.Variable(tf.truncated_normal([num_nodes, num_nodes], -0.1, 0.1), name='wih')
+        bi = tf.Variable(tf.zeros([1, num_nodes]), name='bi')
 
-    # Forget gate: input, previous output, and bias.
-    wfx = tf.Variable(tf.truncated_normal([vocabulary_size, num_nodes], -0.1, 0.1), name='wfx')
-    wfh = tf.Variable(tf.truncated_normal([num_nodes, num_nodes], -0.1, 0.1), name='wfh')
-    bf = tf.Variable(tf.zeros([1, num_nodes]), name='bf')
+        # Forget gate: input, previous output, and bias.
+        wfx = tf.Variable(tf.truncated_normal([vocabulary_size, num_nodes], -0.1, 0.1), name='wfx')
+        wfh = tf.Variable(tf.truncated_normal([num_nodes, num_nodes], -0.1, 0.1), name='wfh')
+        bf = tf.Variable(tf.zeros([1, num_nodes]), name='bf')
 
-    # Memory cell: input, state and bias.
-    wcx = tf.Variable(tf.truncated_normal([vocabulary_size, num_nodes], -0.1, 0.1), name='wcx')
-    wch = tf.Variable(tf.truncated_normal([num_nodes, num_nodes], -0.1, 0.1), name='wch')
-    bc = tf.Variable(tf.zeros([1, num_nodes]), name='bc')
+        # Memory cell: input, state and bias.
+        wcx = tf.Variable(tf.truncated_normal([vocabulary_size, num_nodes], -0.1, 0.1), name='wcx')
+        wch = tf.Variable(tf.truncated_normal([num_nodes, num_nodes], -0.1, 0.1), name='wch')
+        bc = tf.Variable(tf.zeros([1, num_nodes]), name='bc')
 
+        # Output gate: input, previous output, and bias.
+        wox = tf.Variable(tf.truncated_normal([vocabulary_size, num_nodes], -0.1, 0.1), name='wox')
+        woh = tf.Variable(tf.truncated_normal([num_nodes, num_nodes], -0.1, 0.1), name='woh')
+        bo = tf.Variable(tf.zeros([1, num_nodes]), name='bo')
 
-    # Output gate: input, previous output, and bias.
-    wox = tf.Variable(tf.truncated_normal([vocabulary_size, num_nodes], -0.1, 0.1), name='wox')
-    woh = tf.Variable(tf.truncated_normal([num_nodes, num_nodes], -0.1, 0.1), name='woh')
-    bo = tf.Variable(tf.zeros([1, num_nodes]), name='bo')
+    with tf.variable_scope("saved_parameters"):
+        # Variables saving state across unrollings.
+        saved_ht = tf.Variable(tf.zeros([batch_size, num_nodes]), trainable=False, name='saved_ht')
+        saved_Ct = tf.Variable(tf.zeros([batch_size, num_nodes]), trainable=False, name='saved_Ct')
 
-
-    # Variables saving state across unrollings.
-    saved_ht = tf.Variable(tf.zeros([batch_size, num_nodes]), trainable=False, name='saved_ht')
-    saved_Ct = tf.Variable(tf.zeros([batch_size, num_nodes]), trainable=False, name='saved_Ct')
-
-
-    # Classifier weights and biases.
-    w = tf.Variable(tf.truncated_normal([num_nodes, vocabulary_size], -0.1, 0.1), name='w')
-    b = tf.Variable(tf.zeros([vocabulary_size]), name='b')
+    with tf.variable_scope("output_parameters"):
+        # Classifier weights and biases.
+        w = tf.Variable(tf.truncated_normal([num_nodes, vocabulary_size], -0.1, 0.1), name='w')
+        b = tf.Variable(tf.zeros([vocabulary_size]), name='b')
 
     # Definition of the cell computation.
     def lstm_cell(xt, ht_1, Ct_1, name):
@@ -231,12 +231,13 @@ with graph.as_default():
     train_labels = train_data[1:]  # labels are inputs shifted by one time step.
 
     # Unrolled LSTM loop.
-    hts = list()
-    ht = saved_ht
-    Ct = saved_Ct
-    for i, xt in enumerate(train_inputs):
-        ht, Ct = lstm_cell(xt, ht, Ct, name='lstm_cell%i'%i)
-        hts.append(ht)
+    with tf.variable_scope("Unrolled_LSTM"):
+        hts = list()
+        ht = saved_ht
+        Ct = saved_Ct
+        for i, xt in enumerate(train_inputs):
+            ht, Ct = lstm_cell(xt, ht, Ct, name='lstm_cell%i'%i)
+            hts.append(ht)
 
     # State saving across unrollings.
     #control_dependencies makes sure that the variable on the argument are evaluated
@@ -266,18 +267,20 @@ with graph.as_default():
     with tf.name_scope("train_prediction"):
         train_prediction = tf.nn.softmax(logits)
 
-    # Sampling and validation eval: batch 1, no unrolling.
-    sample_input = tf.placeholder(tf.float32, shape=[1, vocabulary_size], name='sample_input')
-    saved_sample_output = tf.Variable(tf.zeros([1, num_nodes]), name='saved_sample_output')
-    saved_sample_state = tf.Variable(tf.zeros([1, num_nodes]), name='saved_sample_state')
+    with tf.name_scope("sampled_test"):
+        # Sampling and validation eval: batch 1, no unrolling.
+        sample_input = tf.placeholder(tf.float32, shape=[1, vocabulary_size], name='sample_input')
+        saved_sample_output = tf.Variable(tf.zeros([1, num_nodes]), name='saved_sample_output')
+        saved_sample_state = tf.Variable(tf.zeros([1, num_nodes]), name='saved_sample_state')
 
-    #groups multiple operation into one
-    reset_sample_state = tf.group(saved_sample_output.assign(tf.zeros([1, num_nodes])),
-                                    saved_sample_state.assign(tf.zeros([1, num_nodes])))
-    sample_output, sample_state = lstm_cell(sample_input, saved_sample_output, saved_sample_state, name='lstm_cell_sampled_prediction')
-    with tf.control_dependencies([saved_sample_output.assign(sample_output),
-                                saved_sample_state.assign(sample_state)]):
-        sample_prediction = tf.nn.softmax(tf.nn.xw_plus_b(sample_output, w, b))
+        #groups multiple operation into one
+        reset_sample_state = tf.group(saved_sample_output.assign(tf.zeros([1, num_nodes])),
+                                        saved_sample_state.assign(tf.zeros([1, num_nodes])))
+        sample_output, sample_state = lstm_cell(sample_input, saved_sample_output, saved_sample_state,
+                                                name='lstm_cell_sampled_prediction')
+        with tf.control_dependencies([saved_sample_output.assign(sample_output),
+                                    saved_sample_state.assign(sample_state)]):
+            sample_prediction = tf.nn.softmax(tf.nn.xw_plus_b(sample_output, w, b))
 
 
 num_steps = 7001
@@ -298,7 +301,8 @@ with tf.Session(graph=graph) as session:
         for i in range(num_unrollings + 1):
             feed_dict[train_data[i]] = batches[i]
         _, l, predictions, lr = session.run(
-            [optimizer, loss, train_prediction, learning_rate], feed_dict=feed_dict)
+            [optimizer, loss, train_prediction, learning_rate],
+            feed_dict=feed_dict)
         mean_loss += l
         if step % summary_frequency == 0:
             if step > 0:
