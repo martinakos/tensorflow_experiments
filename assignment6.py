@@ -173,8 +173,11 @@ num_nodes = 64
 graph = tf.Graph()
 with graph.as_default():
 
+
+    #Notice:
+    #tf.Variables live in the graph.
+    #tf.placeholders will need data to be transfered from the CPU to the graph (running on GPU)
     with tf.variable_scope("LSTM_parameters"):
-        # Parameters:
         # Input gate: input, previous output, and bias.
         wix = tf.Variable(tf.truncated_normal([vocabulary_size, num_nodes], -0.1, 0.1), name='wix')
         wih = tf.Variable(tf.truncated_normal([num_nodes, num_nodes], -0.1, 0.1), name='wih')
@@ -273,7 +276,10 @@ with graph.as_default():
         saved_sample_output = tf.Variable(tf.zeros([1, num_nodes]), name='saved_sample_output')
         saved_sample_state = tf.Variable(tf.zeros([1, num_nodes]), name='saved_sample_state')
 
-        #groups multiple operation into one
+        #groups multiple graph nodes into one,
+        #So that we don't have to tell session.run() to evaluate each one of them.
+        #the nodes are grouped into an indicator (here reset_sample_state) and whenever we want to
+        #run that part of the graph, we only need to run this indicator.
         reset_sample_state = tf.group(saved_sample_output.assign(tf.zeros([1, num_nodes])),
                                         saved_sample_state.assign(tf.zeros([1, num_nodes])))
         sample_output, sample_state = lstm_cell(sample_input, saved_sample_output, saved_sample_state,
