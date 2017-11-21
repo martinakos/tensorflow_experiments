@@ -63,6 +63,7 @@ def second_way():
     test_labels = np_utils.to_categorical(y_test, 10)  #preprocess labels into one-hot encoddings.
 
     model = Sequential()
+    #by default kernel_initializer='glorot_uniform' which is Xavier's initialization
     model.add(Dense(64, input_shape=(784,)))
     model.add(Activation('relu'))
     model.add(Dense(64))
