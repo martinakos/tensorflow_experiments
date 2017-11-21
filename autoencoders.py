@@ -8,6 +8,9 @@ np.set_printoptions(linewidth=10000, precision = 3, edgeitems= 100, suppress=Tru
 import matplotlib.pyplot as plt
 plt.ion()
 
+
+#We create 3 models. An autoencoder and encoder and a decoder.
+
 # this is the size of our encoded representations
 encoding_dim = 32  # 32 floats -> compression of factor 24.5, assuming the input is 784 floats
 
@@ -23,8 +26,39 @@ decoded = Dense(784, activation='sigmoid')(encoded)
 # this model maps an input to its reconstruction
 autoencoder = Model(input_img, decoded)
 
+#autoencoder.summary()
+#_________________________________________________________________
+#Layer (type)                 Output Shape              Param #
+#=================================================================
+#input_1 (InputLayer)         (None, 784)               0
+#_________________________________________________________________
+#dense_1 (Dense)              (None, 32)                25120
+#_________________________________________________________________
+#dense_2 (Dense)              (None, 784)               25872
+#=================================================================
+#Total params: 50,992
+#Trainable params: 50,992
+#Non-trainable params: 0
+#_________________________________________________________________
+
+
+
 # this model maps an input to its encoded representation
 encoder = Model(input_img, encoded)
+
+#encoder.summary()
+#_________________________________________________________________
+#Layer (type)                 Output Shape              Param #
+#=================================================================
+#input_1 (InputLayer)         (None, 784)               0
+#_________________________________________________________________
+#dense_1 (Dense)              (None, 32)                25120
+#=================================================================
+#Total params: 25,120
+#Trainable params: 25,120
+#Non-trainable params: 0
+#_________________________________________________________________
+
 
 # create a placeholder for an encoded (32-dimensional) input
 encoded_input = Input(shape=(encoding_dim,))
@@ -33,8 +67,24 @@ decoder_layer = autoencoder.layers[-1]
 # create the decoder model
 decoder = Model(encoded_input, decoder_layer(encoded_input))
 
+#decoder.summary()
+#_________________________________________________________________
+#Layer (type)                 Output Shape              Param #
+#=================================================================
+#input_2 (InputLayer)         (None, 32)                0
+#_________________________________________________________________
+#dense_2 (Dense)              (None, 784)               25872
+#=================================================================
+#Total params: 25,872
+#Trainable params: 25,872
+#Non-trainable params: 0
+#_________________________________________________________________
+
+
 autoencoder.compile(optimizer='adadelta', loss='binary_crossentropy')
 
+
+#We don't need the labels as the autoencoder is self-supervised
 
 (x_train, _), (x_test, _) = mnist.load_data()
 
