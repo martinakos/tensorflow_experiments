@@ -92,7 +92,7 @@ def test_classifier(clf, test_dataset, test_labels):
     ys = clf.predict(test_datasetp)
     print(classification_report(test_labels, ys))
 
-    return
+    return clf
 
 
 if __name__ == "__main__":
