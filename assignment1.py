@@ -15,6 +15,7 @@ data_root = '.'
 
 
 def noop():
+	print("Noop")
     pass
 
 def l2_norm_cols(x):
